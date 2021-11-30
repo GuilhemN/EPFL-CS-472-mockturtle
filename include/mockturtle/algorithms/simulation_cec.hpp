@@ -56,6 +56,48 @@ struct simulation_cec_stats
 namespace detail
 {
 
+/**
+ * Adaptation of `default_simulator` to the case where we only simulate a part of the inputs.
+ */
+class split_var_simulator
+{
+public:
+  split_var_simulator() = delete;
+  split_var_simulator( unsigned num_vars, unsigned split_var, uint64_t others_assignation ) : num_vars( num_vars ), split_var{split_var}, others_assignation{others_assignation} {}
+
+  kitty::dynamic_truth_table compute_constant( bool value ) const
+  {
+    kitty::dynamic_truth_table tt( num_vars );
+    return value ? ~tt : tt;
+  }
+
+  kitty::dynamic_truth_table compute_pi( uint32_t index ) const
+  {
+    kitty::dynamic_truth_table tt( num_vars );
+    if (index < split_var) { // input we actually simulate
+      kitty::create_nth_var( tt, index ); // Updates the truth table to the truth table corresponding to the variable
+    } else {
+      // Otherwise, we get the constant value it is assigned
+      bool value = (others_assignation >> (index-split_var)) & 1;
+      if (!value) {
+        tt = ~tt; // if value == 0, we return the 0 truth table
+      }
+    }
+  
+    return tt;
+  }
+
+  kitty::dynamic_truth_table compute_not( kitty::dynamic_truth_table const& value ) const
+  {
+    return ~value;
+  }
+
+private:
+  unsigned num_vars;
+  unsigned split_var;
+  uint64_t others_assignation;
+};
+
 template<class Ntk>
 class simulation_cec_impl
 {
@@ -73,8 +115,44 @@ public:
 
   bool run()
   {
-    /* TODO: write your implementation here */
-    return false;
+    // Compute split_var and rounds
+    unsigned n = _ntk.num_pis();
+    unsigned split_var;
+    if (n <= 6) {
+      split_var = n;
+    } else {
+      unsigned V = _ntk.num_gates();
+  
+      int m = 7;
+      while (m < n && (32 + (1 << ((m+1)-3))) * V <= 1 << 29) {
+        m++;
+      }
+      split_var = m;
+    }
+
+    int rounds = 1 << (n-split_var);
+
+    // Store them in the statistics struct
+    _st.split_var = split_var;
+    _st.rounds = rounds;
+
+    // Actual simulation
+
+    for (uint64_t others_assignation = 0; others_assignation < rounds; others_assignation++) { // We iterate over all the possible assignations of the remaining variables
+      split_var_simulator sim( _ntk.num_pis(), split_var, others_assignation);
+      const auto tts = simulate<kitty::dynamic_truth_table>( _ntk, sim );
+
+      bool equivalent = true;
+      for (auto &po: tts) {
+        equivalent &= kitty::is_const0(po);
+      }
+
+      if (!equivalent) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
 private:
