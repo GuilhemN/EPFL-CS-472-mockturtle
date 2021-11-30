@@ -121,7 +121,7 @@ public:
     if (n <= 6) {
       split_var = n;
     } else {
-      unsigned V = _ntk.num_gates();
+      unsigned V = _ntk.size();
   
       int m = 7;
       while (m < n && (32 + (1 << ((m+1)-3))) * V <= 1 << 29) {
