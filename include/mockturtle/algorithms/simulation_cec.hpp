@@ -131,6 +131,7 @@ public:
     }
 
     int rounds = 1 << (n-split_var);
+    std::cout << "rounds:" << split_var << std::endl;
 
     // Store them in the statistics struct
     _st.split_var = split_var;
@@ -139,16 +140,14 @@ public:
     // Actual simulation
 
     for (uint64_t others_assignation = 0; others_assignation < rounds; others_assignation++) { // We iterate over all the possible assignations of the remaining variables
+      std::cout << "round:" << others_assignation << std::endl;
       split_var_simulator sim( _ntk.num_pis(), split_var, others_assignation);
       const auto tts = simulate<kitty::dynamic_truth_table>( _ntk, sim );
 
-      bool equivalent = true;
       for (auto &po: tts) {
-        equivalent &= kitty::is_const0(po);
-      }
-
-      if (!equivalent) {
-        return false;
+        if (!kitty::is_const0(po)) {
+          return false;
+        }
       }
     }
 
