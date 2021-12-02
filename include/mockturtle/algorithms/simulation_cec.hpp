@@ -67,13 +67,13 @@ public:
 
   kitty::dynamic_truth_table compute_constant( bool value ) const
   {
-    kitty::dynamic_truth_table tt( num_vars );
+    kitty::dynamic_truth_table tt( split_var );
     return value ? ~tt : tt;
   }
 
   kitty::dynamic_truth_table compute_pi( uint32_t index ) const
   {
-    kitty::dynamic_truth_table tt( num_vars );
+    kitty::dynamic_truth_table tt( split_var );
     if (index < split_var) { // input we actually simulate
       kitty::create_nth_var( tt, index ); // Updates the truth table to the truth table corresponding to the variable
     } else {
@@ -131,7 +131,6 @@ public:
     }
 
     int rounds = 1 << (n-split_var);
-    std::cout << "rounds:" << split_var << std::endl;
 
     // Store them in the statistics struct
     _st.split_var = split_var;
@@ -140,7 +139,6 @@ public:
     // Actual simulation
 
     for (uint64_t others_assignation = 0; others_assignation < rounds; others_assignation++) { // We iterate over all the possible assignations of the remaining variables
-      std::cout << "round:" << others_assignation << std::endl;
       split_var_simulator sim( _ntk.num_pis(), split_var, others_assignation);
       const auto tts = simulate<kitty::dynamic_truth_table>( _ntk, sim );
 
